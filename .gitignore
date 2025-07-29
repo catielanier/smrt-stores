@@ -1,0 +1,15 @@
+# Node
+/client/node_modules
+/client/dist
+/client/.env
+
+# .NET
+/server/bin
+/server/obj
+/server/wwwroot/*
+
+# Env + system
+.env
+*.log
+.vscode
+.DS_Store

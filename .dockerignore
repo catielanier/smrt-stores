@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/yarn.lock
+*.log
+.vscode
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
