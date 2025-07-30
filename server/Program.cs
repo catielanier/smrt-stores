@@ -11,6 +11,8 @@ var supabase = new Supabase.Client(url!, key, options);
 
 await supabase.InitializeAsync();
 
+builder.Services.AddSingleton(supabase);
+
 builder.Services.AddCors(options => 
 {
     options.AddPolicy("AllowDev",
