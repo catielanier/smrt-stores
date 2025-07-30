@@ -25,8 +25,8 @@ namespace SmrtStores.Controllers
       user.PasswordHash = hashed;
       var res = await _supabase.From<DBUser>().Insert(user);
       if(res.Models.Count == 0)
-        return BadRequest("User creation failed")
-      
+        return BadRequest("User creation failed");
+
       return Ok(res.Models.First());
     }
 
@@ -36,7 +36,7 @@ namespace SmrtStores.Controllers
       var req = await _supabase.From<DBUser>()
         .Where(user => user.Email == email)
         .Get();
-      if (req.Models is null || !req.Models.Any()) {
+      if (req.Models is null || req.Models.Count == 0) {
         return BadRequest("Invalid email or password");
       }
       var user = req.Models.First();
