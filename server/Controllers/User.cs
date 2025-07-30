@@ -1,6 +1,8 @@
 using BCrypt.Net;
 using Microsoft.AspNetCore.Mvc;
 using DBUser = SmrtStores.Models.User;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;  
 using Supabase;
 
 namespace SmrtStores.Controllers
@@ -46,6 +48,53 @@ namespace SmrtStores.Controllers
       }
       var token = _tokenService.GenerateToken(user);
       return Ok(new { token });
+    }
+
+    [HttpPost("init")]
+    public ActionResult<object> Init()
+    {
+        var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+
+        if (string.IsNullOrWhiteSpace(token))
+            return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+        var principal = _tokenService.ValidateToken(token);
+
+        if (principal is null)
+            return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+        // Get expiration claim
+        var expClaim = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Exp);
+
+        if (expClaim is null || !long.TryParse(expClaim.Value, out long expUnix))
+            return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+        var expiryDate = DateTimeOffset.FromUnixTimeSeconds(expUnix).UtcDateTime;
+        var now = DateTime.UtcNow;
+
+        if (expiryDate < now)
+        {
+            // Token is expired but valid — issue a new one
+            var userId = principal.FindFirstValue(JwtRegisteredClaimNames.Sub);
+
+            if (!Guid.TryParse(userId, out Guid id))
+                return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+            // Get user from DB
+            var userReq = _supabase.From<DBUser>().Where(u => u.Id == id).Get().Result;
+
+            if (userReq.Models.Count == 0)
+                return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+            var user = userReq.Models.First();
+
+            var newToken = _tokenService.GenerateToken(user);
+
+            return Ok(new { token = newToken });
+        }
+
+        // Token is valid and not expired
+        return Ok(new { success = true });
     }
   }
 }
