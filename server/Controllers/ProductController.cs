@@ -14,6 +14,9 @@ namespace SmrtStores.Controllers
     {
       _supabase = supabase;
     }
+
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpGet()]
     public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
     {
@@ -22,8 +25,10 @@ namespace SmrtStores.Controllers
       return Ok(products);
     }
 
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpGet("{id}")]
-    public async Task<ActionResult<Product>> GetProduct(Guid id)
+    public async Task<ActionResult<Product>> GetProduct([FromRoute] Guid id)
     {
       var res = await _supabase
         .From<Product>()
@@ -36,6 +41,9 @@ namespace SmrtStores.Controllers
       return Ok(res.Models.First());
     }
 
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPost()]
     public async Task<ActionResult<Product>> CreateProduct([FromBody] Product product) {
       if (!ModelState.IsValid)
@@ -45,14 +53,25 @@ namespace SmrtStores.Controllers
         .Insert(product);
       if (res.Models is null || res.Models.Count == 0)
         return StatusCode(500, "Failed to create product");
-      return Ok(res.Models.First());
+      return CreatedAtAction(
+        nameof(GetProduct), 
+        new { id = res.Models.First().Id }, 
+        res.Models.First()
+      );
     }
-    
+
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPut("{id}")]
-    public async Task<ActionResult<Product>> UpdateProduct(Guid id, [FromBody] Product product)
+    public async Task<ActionResult<Product>> UpdateProduct([FromRoute] Guid id, [FromBody] Product product)
     {
       if (!ModelState.IsValid)
         return BadRequest(ModelState);
+      var existing = await _supabase.From<Product>().Where(p => p.Id == id).Get();
+      if (existing.Models.Count == 0)
+        return NotFound();
       var res = await _supabase
         .From<Product>()
         .Where(p => p.Id == id)
@@ -62,8 +81,10 @@ namespace SmrtStores.Controllers
       return Ok(res.Models.First());
     }
 
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpDelete("{id}")]
-    public async Task<ActionResult<Product>> DeleteProduct(Guid id)
+    public async Task<ActionResult<Product>> DeleteProduct([FromRoute] Guid id)
     {
       var res = await _supabase
         .From<Product>()
