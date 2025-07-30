@@ -37,31 +37,45 @@ namespace SmrtStores.Controllers
     }
 
     [HttpPost()]
-    public async Task<ActionResult<Product>> CreateProduct(Product product) {
+    public async Task<ActionResult<Product>> CreateProduct([FromBody] Product product) {
+      if (!ModelState.IsValid)
+        return BadRequest(ModelState);
       var res = await _supabase
         .From<Product>()
         .Insert(product);
+      if (res.Models is null || res.Models.Count == 0)
+        return StatusCode(500, "Failed to create product");
       return Ok(res.Models.First());
     }
     
     [HttpPut("{id}")]
-    public async Task<ActionResult<Product>> UpdateProduct(Guid id, Product product)
+    public async Task<ActionResult<Product>> UpdateProduct(Guid id, [FromBody] Product product)
     {
+      if (!ModelState.IsValid)
+        return BadRequest(ModelState);
       var res = await _supabase
         .From<Product>()
         .Where(p => p.Id == id)
         .Update(product);
+      if (res.Models is null || res.Models.Count == 0)
+        return StatusCode(500, "Failed to update product");
       return Ok(res.Models.First());
     }
 
     [HttpDelete("{id}")]
     public async Task<ActionResult<Product>> DeleteProduct(Guid id)
     {
+      var res = await _supabase
+        .From<Product>()
+        .Where(p => p.Id == id)
+        .Get();
+      if (res.Models is null || res.Models.Count == 0)
+        return NotFound();
       await _supabase
         .From<Product>()
         .Where(p => p.Id == id)
         .Delete();
-      return Ok();
+      return NoContent();
     }
   }
 }
