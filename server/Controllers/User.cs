@@ -10,11 +10,14 @@ namespace SmrtStores.Controllers
   public class UserController : ControllerBase
   {
     private readonly Client _supabase;
+    private readonly TokenService _tokenService;
 
-    public UserController(Client supabase)
+    public UserController(Client supabase, TokenService tokenService)
     {
       _supabase = supabase;
+      _tokenService = tokenService;
     }
+
     [HttpPost("signup")]
     public async Task<ActionResult<DBUser>> DoSignup(DBUser user)
     {
@@ -25,6 +28,24 @@ namespace SmrtStores.Controllers
         return BadRequest("User creation failed")
       
       return Ok(res.Models.First());
+    }
+
+    [HttpPost("login")]
+    public async Task<ActionResult<DBUser>> DoLogin(string email, string password)
+    {
+      var req = await _supabase.From<DBUser>()
+        .Where(user => user.Email == email)
+        .Get();
+      if (req.Models is null || !req.Models.Any()) {
+        return BadRequest("Invalid email or password");
+      }
+      var user = req.Models.First();
+      bool isValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+      if (isValid == false) {
+        return BadRequest("Invalid email or password");
+      }
+      var token = _tokenService.GenerateToken(user);
+      return Ok(new { token });
     }
   }
 }
