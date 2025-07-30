@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SmrtStores</RootNamespace>
+    <SuppressImplicitApiControllerAttribute>true</SuppressImplicitApiControllerAttribute>
   </PropertyGroup>
 
   <ItemGroup>
