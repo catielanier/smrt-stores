@@ -1,3 +1,7 @@
+using dotenv.net;
+
+DotEnv.Load();
+
 var builder = WebApplication.CreateBuilder(args);
 var url = Environment.GetEnvironmentVariable("SUPABASE_URL");
 var key = Environment.GetEnvironmentVariable("SUPABASE_KEY");
