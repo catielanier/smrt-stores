@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
@@ -8,10 +9,13 @@ namespace SmrtStores.Models
   { 
     [PrimaryKey("id")]
     public Guid Id { get; set; }
+    [Required]
     [Column("name")]
     public string Name { get; set; } = string.Empty;
+    [Required]
     [Column("email")]
     public string Email { get; set; } = string.Empty;
+    [Required]
     [Column("password_hash")]
     public string PasswordHash { get; set; } = string.Empty;
     [Column("phone")]
