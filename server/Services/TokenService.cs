@@ -62,4 +62,23 @@ public class TokenService
       return null;
     }
   }
+
+  public Guid? GetUserIdFromToken(string token)
+  {
+      var handler = new JwtSecurityTokenHandler();
+      var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+      if (jwtToken == null)
+          return null;
+
+      var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub);
+
+      if (userIdClaim == null)
+          return null;
+
+      if (Guid.TryParse(userIdClaim.Value, out var userId))
+          return userId;
+
+      return null;
+  }
 }

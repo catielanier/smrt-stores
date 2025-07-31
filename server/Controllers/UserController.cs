@@ -2,7 +2,7 @@ using BCrypt.Net;
 using Microsoft.AspNetCore.Mvc;
 using DBUser = SmrtStores.Models.User;
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;  
+using System.Security.Claims;
 using Supabase;
 
 namespace SmrtStores.Controllers
