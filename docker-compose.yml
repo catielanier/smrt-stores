@@ -11,6 +11,10 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRY: ${JWT_EXPIRY}
+      UPS_API_KEY: ${UPS_API_KEY}
+      CANADA_POST_API_KEY: ${CANADA_POST_API_KEY}
+      FEDEX_API_KEY: ${FEDEX_API_KEY}
+      PUROLATOR_API_KEY: ${PUROLATOR_API_KEY}
     volumes:
       - ./server:/app
     restart: unless-stopped
