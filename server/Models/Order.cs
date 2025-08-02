@@ -4,6 +4,22 @@ using Supabase.Postgrest.Models;
 
 namespace SmrtStores.Models
 {
+  public enum ShippingMethod
+  {
+      CanadaPost,
+      UPS,
+      FedEx,
+      Purolator
+  }
+
+  public enum ShippingStatus
+  {
+    Pending,
+    Shipped,
+    Delivered,
+    Returned
+  }
+
   [Table("orders")]
   public class Order : BaseModel
   {
@@ -21,7 +37,16 @@ namespace SmrtStores.Models
     [Required]
     [Column("status")]
     public string Status { get; set; } = "PENDING";
-    [Required]
+    [Column("shipping_method")]
+    public ShippingMethod ShippingMethod { get; set; }
+    [Column("shipping_cost")]
+    public int ShippingCost { get; set; }
+    [Column("shipping_status")]
+    public ShippingStatus ShippingStatus { get; set; } = ShippingStatus.Pending;
+    [Column("tracking_number")]
+    public string? TrackingNumber { get; set; }
+    [Column("tracking_url")]
+    public string? TrackingUrl{ get; set; }
     [Column("stripe_payment_intent_id")]
     public string StripePaymentIntentId { get; set; } = string.Empty;
     [Column("created_at")]
