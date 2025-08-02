@@ -20,6 +20,36 @@ namespace SmrtStores.Models
     Returned
   }
 
+  public class ShippingAddress
+{
+    [Required]
+    [Column("recipient_name")]
+    public string RecipientName { get; set; } = string.Empty;
+
+    [Required]
+    [Column("street_address1")]
+    public string StreetAddress1 { get; set; } = string.Empty;
+
+    [Column("street_address2")]
+    public string? StreetAddress2 { get; set; } // Optional apartment/suite/unit
+
+    [Required]
+    [Column("city")]
+    public string City { get; set; } = string.Empty;
+
+    [Required]
+    [Column("province")]
+    public string Province { get; set; } = string.Empty; // Consider enforcing ISO province codes (e.g., "ON", "QC")
+
+    [Required]
+    [Column("postal_code")]
+    public string PostalCode { get; set; } = string.Empty; // "A1A 1A1" format
+
+    [Required]
+    [Column("country")]
+    public string Country { get; set; } = "Canada"; // Default to "Canada", but keep configurable
+}
+
   [Table("orders")]
   public class Order : BaseModel
   {
@@ -37,6 +67,8 @@ namespace SmrtStores.Models
     [Required]
     [Column("status")]
     public string Status { get; set; } = "PENDING";
+    [Column("shipping_address")]
+    public ShippingAddress ShippingAddress { get; set; } = new();
     [Column("shipping_method")]
     public ShippingMethod ShippingMethod { get; set; }
     [Column("shipping_cost")]
