@@ -1,10 +1,12 @@
 using dotenv.net;
+using Stripe;
 
 DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 var url = Environment.GetEnvironmentVariable("SUPABASE_URL");
 var key = Environment.GetEnvironmentVariable("SUPABASE_KEY");
+var stripeKey = Environment.GetEnvironmentVariable("STRIPE_SECRET_KEY");
 
 var options = new Supabase.SupabaseOptions
 {
@@ -13,9 +15,12 @@ var options = new Supabase.SupabaseOptions
 
 var supabase = new Supabase.Client(url!, key, options);
 
+var stripeClient = new StripeClient(stripeKey);
+
 await supabase.InitializeAsync();
 
 builder.Services.AddSingleton(supabase);
+builder.Services.AddSingleton(stripeClient);
 
 builder.Services.AddControllers();
 
