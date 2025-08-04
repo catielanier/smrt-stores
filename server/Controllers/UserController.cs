@@ -4,6 +4,7 @@ using DBUser = SmrtStores.Models.User;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Supabase;
+using Stripe;
 
 namespace SmrtStores.Controllers
 {
@@ -13,11 +14,13 @@ namespace SmrtStores.Controllers
   {
     private readonly Client _supabase;
     private readonly TokenService _tokenService;
+    private readonly StripeClient _stripeClient;
 
-    public UserController(Client supabase, TokenService tokenService)
+    public UserController(Client supabase, TokenService tokenService, StripeClient stripeClient)
     {
       _supabase = supabase;
       _tokenService = tokenService;
+      _stripeClient = stripeClient;
     }
 
     [HttpPost("signup")]
@@ -25,6 +28,12 @@ namespace SmrtStores.Controllers
     {
       var hashed = BCrypt.Net.BCrypt.HashPassword(user.PasswordHash);
       user.PasswordHash = hashed;
+      var stripeCustomerOptions = new CustomerCreateOptions
+      {
+        Email = user.Email
+      };
+      Customer customer = _stripeClient.V1.Customers.Create(stripeCustomerOptions);
+      user.StripeCustomerId = customer.Id;
       var res = await _supabase.From<DBUser>().Insert(user);
       if(res.Models.Count == 0)
         return BadRequest("User creation failed");
