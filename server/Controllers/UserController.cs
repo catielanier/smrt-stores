@@ -28,12 +28,20 @@ namespace SmrtStores.Controllers
     {
       var hashed = BCrypt.Net.BCrypt.HashPassword(user.PasswordHash);
       user.PasswordHash = hashed;
+      var customerService = new CustomerService(_stripeClient);
       var stripeCustomerOptions = new CustomerCreateOptions
       {
         Email = user.Email
       };
-      Customer customer = _stripeClient.V1.Customers.Create(stripeCustomerOptions);
-      user.StripeCustomerId = customer.Id;
+      try 
+      {
+        Customer customer = await customerService.CreateAsync(stripeCustomerOptions);
+        user.StripeCustomerId = customer.Id;
+      }
+      catch
+      {
+        return StatusCode(500, "Stripe customer creation failure");
+      }
       var res = await _supabase.From<DBUser>().Insert(user);
       if(res.Models.Count == 0)
         return BadRequest("User creation failed");
