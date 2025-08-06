@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
@@ -18,6 +19,12 @@ namespace SmrtStores.Models
     [Column("name")]
     public string Name { get; set; } = string.Empty;
     [Column("role")]
+    public string JsonString
+    {
+      get => Role.ToString();
+      set => Role = Enum.Parse<Role>(value);
+    }
+    [JsonIgnore]
     public Role Role { get; set; } = Role.User;
     [Required]
     [Column("email")]

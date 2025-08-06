@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using Stripe;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 
@@ -72,10 +74,22 @@ namespace SmrtStores.Models
     [Column("shipping_address")]
     public ShippingAddress ShippingAddress { get; set; } = new();
     [Column("shipping_method")]
+    public string ShippingMethodString
+    {
+      get => ShippingMethod.ToString();
+      set => ShippingMethod = Enum.Parse<ShippingMethod>(value);
+    }
+    [JsonIgnore]
     public ShippingMethod ShippingMethod { get; set; }
     [Column("shipping_cost")]
     public int ShippingCost { get; set; }
     [Column("shipping_status")]
+    public string ShippingStatusString
+    {
+      get => ShippingStatus.ToString();
+      set => ShippingStatus = Enum.Parse<ShippingStatus>(value);
+    }
+    [JsonIgnore]
     public ShippingStatus ShippingStatus { get; set; } = ShippingStatus.Pending;
     [Column("tracking_number")]
     public string? TrackingNumber { get; set; }
