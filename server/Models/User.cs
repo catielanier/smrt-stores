@@ -17,7 +17,6 @@ namespace SmrtStores.Models
     [Required]
     [Column("name")]
     public string Name { get; set; } = string.Empty;
-    [Required]
     [Column("role")]
     public Role Role { get; set; } = Role.User;
     [Required]
