@@ -67,6 +67,8 @@ namespace SmrtStores.Models
     [Required]
     [Column("status")]
     public string Status { get; set; } = "PENDING";
+    [Required]
+    [System.Text.Json.Serialization.JsonPropertyName("shipping_address")]
     [Column("shipping_address")]
     public ShippingAddress ShippingAddress { get; set; } = new();
     [Column("shipping_method")]
