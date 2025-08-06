@@ -4,6 +4,11 @@ using Supabase.Postgrest.Models;
 
 namespace SmrtStores.Models
 { 
+  public enum Role
+  {
+    User,
+    Owner
+  }
   [Table("users")]
   public class User : BaseModel
   { 
@@ -12,6 +17,9 @@ namespace SmrtStores.Models
     [Required]
     [Column("name")]
     public string Name { get; set; } = string.Empty;
+    [Required]
+    [Column("role")]
+    public Role Role { get; set; } = Role.User;
     [Required]
     [Column("email")]
     public string Email { get; set; } = string.Empty;
