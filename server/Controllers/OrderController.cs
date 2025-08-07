@@ -116,6 +116,8 @@ namespace SmrtStores.Controllers
         .Where(u => u.Id == userId)
         .Get();
 
+      int orderCount = await _supabase.From<Order>().Count(Supabase.Postgrest.Constants.CountType.Exact);
+
       Order order = new Order
       {
         UserId = (Guid)userId,
@@ -123,6 +125,7 @@ namespace SmrtStores.Controllers
         ShippingAddress = dto.ShippingAddress,
         ShippingMethod = dto.ShippingMethod,
         ShippingCost = dto.ShippingCost,
+        OrderNumber = $"SMRT-{orderCount + 1:D6}",
       };
 
       var stripeOptions = new PaymentIntentCreateOptions

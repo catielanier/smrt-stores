@@ -60,6 +60,8 @@ namespace SmrtStores.Models
     [Required]
     [Column("user_id")]
     public Guid UserId { get; set; }
+    [Column("order_number")]
+    public string OrderNumber { get; set; } = string.Empty;
     [Required]
     [Column("total_cents")]
     public int TotalCents { get; set; }
