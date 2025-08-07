@@ -23,12 +23,24 @@ namespace SmrtStores.Controllers
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpGet()]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] string? category)
+    public async Task<ActionResult<IEnumerable<ProductGetDto>>> GetProducts([FromQuery] string? category)
     {
       if (string.IsNullOrWhiteSpace(category))
       {
         var res = await _supabase.From<Product>().Get();
-        var products = res.Models;        
+        List<ProductGetDto> products = res.Models.Select(p => new ProductGetDto
+        {
+          Name = p.Name,
+          Description = p.Description,
+          Price = p.Price,
+          Currency = p.Currency,
+          ImageUrl = p.ImageUrl,
+          Slug = p.Slug,
+          ProductNumber = p.ProductNumber,
+          Stock = p.Stock,
+          IsActive = p.IsActive,
+          Weight = p.Weight,
+        }).ToList();        
         return Ok(products);
       }
 
@@ -57,7 +69,21 @@ namespace SmrtStores.Controllers
         .Filter("id", Supabase.Postgrest.Constants.Operator.In, $"({string.Join(",", productIds.Select(id => $"\"{id}\""))})") 
         .Get();
 
-      return Ok(filteredProductsRes.Models);
+      List<ProductGetDto> filteredProducts = filteredProductsRes.Models.Select(p => new ProductGetDto
+        {
+          Name = p.Name,
+          Description = p.Description,
+          Price = p.Price,
+          Currency = p.Currency,
+          ImageUrl = p.ImageUrl,
+          Slug = p.Slug,
+          ProductNumber = p.ProductNumber,
+          Stock = p.Stock,
+          IsActive = p.IsActive,
+          Weight = p.Weight,
+        }).ToList();
+
+      return Ok(filteredProducts);
     }
 
     [ProducesResponseType(StatusCodes.Status200OK)]
