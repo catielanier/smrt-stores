@@ -4,6 +4,7 @@ using SmrtStores.Models;
 using DBUser = SmrtStores.Models.User;
 using Supabase;
 using Microsoft.Net.Http.Headers;
+using Stripe;
 
 namespace SmrtStores.Controllers
 {
@@ -13,10 +14,12 @@ namespace SmrtStores.Controllers
   {
     private readonly Client _supabase;
     private readonly TokenService _tokenService;
-    public OrderController(Client supabase, TokenService tokenService)
+    private readonly StripeClient _stripeClient;
+    public OrderController(Client supabase, TokenService tokenService, StripeClient stripeClient)
     {
       _supabase = supabase;
       _tokenService = tokenService;
+      _stripeClient = stripeClient;
     }
 
     [HttpGet()]
@@ -106,6 +109,30 @@ namespace SmrtStores.Controllers
       var userId = _tokenService.GetUserIdFromToken(token);
 
       order.UserId = (Guid)userId!;
+
+      var user = await _supabase
+        .From<DBUser>()
+        .Where(u => u.Id == userId)
+        .Get();
+
+      var stripeOptions = new PaymentIntentCreateOptions
+      {
+        Customer = user.Models.First().StripeCustomerId,
+        Amount = order.TotalCents + order.ShippingCost,
+        Currency = order.Currency,
+        AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions
+        {
+          Enabled = false,
+        }
+      };
+
+      var paymentIntentService = new PaymentIntentService();
+
+      PaymentIntent paymentIntent = await paymentIntentService.CreateAsync(stripeOptions);
+
+      string paymentIntentId = paymentIntent.Id;
+
+      order.StripePaymentIntentId = paymentIntentId;
 
       var res = await _supabase
         .From<Order>()
