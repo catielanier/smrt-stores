@@ -4,6 +4,7 @@ using SmrtStores.Models;
 using DBUser = SmrtStores.Models.User;
 using Supabase;
 using Stripe;
+using SmrtStores.Dtos;
 
 namespace SmrtStores.Controllers
 {
@@ -88,7 +89,7 @@ namespace SmrtStores.Controllers
     }
 
     [HttpPost()]
-    public async Task<ActionResult<Order>> CreateOrder(Order order)
+    public async Task<ActionResult<Order>> CreateOrder(OrderCreateDto dto)
     {
       var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
 
@@ -110,12 +111,19 @@ namespace SmrtStores.Controllers
       if (userId == null)
         return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
 
-      order.UserId = (Guid)userId;
-
       var user = await _supabase
         .From<DBUser>()
         .Where(u => u.Id == userId)
         .Get();
+
+      Order order = new Order
+      {
+        UserId = (Guid)userId,
+        TotalCents = dto.TotalCents,
+        ShippingAddress = dto.ShippingAddress,
+        ShippingMethod = dto.ShippingMethod,
+        ShippingCost = dto.ShippingCost,
+      };
 
       var stripeOptions = new PaymentIntentCreateOptions
       {
@@ -143,10 +151,25 @@ namespace SmrtStores.Controllers
       if (res.Models is null || res.Models.Count == 0)
         return BadRequest("Could not process order");
 
+      var createdOrder = res.Models.FirstOrDefault();
+
+      foreach(var item in dto.Items)
+      {
+        OrderItem orderItem = new OrderItem
+        {
+          OrderId = createdOrder.Id,
+          ProductId = item.ProductId,
+          PriceCents = item.PriceCents,
+          Quantity = item.Quantity,
+        };
+
+        await _supabase.From<OrderItem>().Insert(orderItem);
+      }
+
       return CreatedAtAction(
         nameof(GetOrder), 
-        new { id = res.Models.First().Id }, 
-        res.Models.First()
+        new { id = createdOrder!.Id }, 
+        createdOrder
       );
     }
   }

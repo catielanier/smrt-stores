@@ -4,7 +4,7 @@ using SmrtStores.Models;
 
 namespace SmrtStores.Dtos
 {
-  public class CreateOrderDto
+  public class OrderCreateDto
   {
     [Required]
     public int TotalCents { get; set; }
