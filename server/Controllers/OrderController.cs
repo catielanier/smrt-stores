@@ -108,7 +108,10 @@ namespace SmrtStores.Controllers
 
       var userId = _tokenService.GetUserIdFromToken(token);
 
-      order.UserId = (Guid)userId!;
+      if (userId == null)
+        return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      order.UserId = (Guid)userId;
 
       var user = await _supabase
         .From<DBUser>()
