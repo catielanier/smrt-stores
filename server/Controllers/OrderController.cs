@@ -47,6 +47,33 @@ namespace SmrtStores.Controllers
     [HttpGet("by-user/{id}")]
     public async Task<ActionResult<IEnumerable<Order>>> GetOrdersByUser([FromRoute] Guid id)
     {
+      var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+
+      if (string.IsNullOrWhiteSpace(token))
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var principal = _tokenService.ValidateToken(token);
+
+      if (principal is null)
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var expClaim = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Exp);
+
+      if (expClaim is null || !long.TryParse(expClaim.Value, out long expUnix))
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var userId = _tokenService.GetUserIdFromToken(token);
+
+      var loggedInUser = await _supabase
+        .From<DBUser>()
+        .Where(u => u.Id == userId)
+        .Get();
+
+      if (loggedInUser.Models is null || loggedInUser.Models.Count == 0)
+        return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      if (loggedInUser.Models.First().Role != Role.Owner)
+        return Unauthorized(new { error = "Not authorized to view user's information." });
       var checkUser = await _supabase
         .From<DBUser>()
         .Where(u => u.Id == id)
