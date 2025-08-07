@@ -31,8 +31,33 @@ namespace SmrtStores.Controllers
     }
 
     [HttpGet("{orderNumber}")]
-    public async Task<ActionResult<Order>> GetOrder([FromRoute] string orderNumber)
+    public async Task<ActionResult<OrderGetDto>> GetOrder([FromRoute] string orderNumber)
     {
+      var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+
+      if (string.IsNullOrWhiteSpace(token))
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var principal = _tokenService.ValidateToken(token);
+
+      if (principal is null)
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var expClaim = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Exp);
+
+      if (expClaim is null || !long.TryParse(expClaim.Value, out long expUnix))
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var userId = _tokenService.GetUserIdFromToken(token);
+
+      var loggedInUser = await _supabase
+        .From<DBUser>()
+        .Where(u => u.Id == userId)
+        .Get();
+
+      if (loggedInUser.Models is null || loggedInUser.Models.Count == 0)
+        return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
       var res = await _supabase
         .From<Order>()
         .Where(o => o.OrderNumber == orderNumber)
@@ -41,7 +66,32 @@ namespace SmrtStores.Controllers
       if (res.Models is null || res.Models.Count == 0)
         return NotFound();
 
-      return Ok(res.Models.First());
+      var returnedOrder = res.Models.First();
+
+      if (loggedInUser.Models.First().Role != Role.Owner || returnedOrder.UserId != loggedInUser.Models.First().Id)
+        return Unauthorized(new { error = "Not authorized to view user's information." });
+
+      var orderItems = await _supabase
+        .From<OrderItem>()
+        .Where(i => i.OrderId == returnedOrder.Id)
+        .Get();
+
+      OrderGetDto order = new OrderGetDto
+      {
+        OrderNumber = returnedOrder.OrderNumber,
+        TotalCents = returnedOrder.TotalCents,
+        Currency = returnedOrder.Currency,
+        ShippingAddress = returnedOrder.ShippingAddress,
+        ShippingMethod = returnedOrder.ShippingMethod,
+        ShippingStatus = returnedOrder.ShippingStatus,
+        TrackingNumber = returnedOrder.TrackingNumber,
+        TrackingUrl = returnedOrder.TrackingUrl,
+        ShippingCost = returnedOrder.ShippingCost,
+        Items = orderItems.Models,
+        CreatedAt = returnedOrder.CreatedAt,
+      };
+
+      return Ok(order);
     }
 
     [HttpGet("by-user/{id}")]
