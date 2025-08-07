@@ -157,7 +157,7 @@ namespace SmrtStores.Controllers
       {
         OrderItem orderItem = new OrderItem
         {
-          OrderId = createdOrder.Id,
+          OrderId = createdOrder!.Id,
           ProductId = item.ProductId,
           PriceCents = item.PriceCents,
           Quantity = item.Quantity,
