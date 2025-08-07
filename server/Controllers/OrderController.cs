@@ -3,7 +3,6 @@ using System.IdentityModel.Tokens.Jwt;
 using SmrtStores.Models;
 using DBUser = SmrtStores.Models.User;
 using Supabase;
-using Microsoft.Net.Http.Headers;
 using Stripe;
 
 namespace SmrtStores.Controllers
