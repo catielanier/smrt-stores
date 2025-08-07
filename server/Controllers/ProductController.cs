@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using SmrtStores.Models;
 using DBUser = SmrtStores.Models.User;
 using Supabase;
+using SmrtStores.Dtos;
 
 namespace SmrtStores.Controllers
 {
@@ -50,7 +51,7 @@ namespace SmrtStores.Controllers
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPost()]
-    public async Task<ActionResult<Product>> CreateProduct([FromBody] Product product) {
+    public async Task<ActionResult<Product>> CreateProduct([FromBody] ProductCreateDto dto) {
       var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
 
       if (string.IsNullOrWhiteSpace(token))
@@ -78,12 +79,34 @@ namespace SmrtStores.Controllers
 
       if (user.Models.First().Role != Role.Owner)
         return Unauthorized(new { error = "No admin access" });
-      
+
+      Product product = new Product
+      {
+        Name = dto.Name,
+        Description = dto.Description,
+        Price = dto.Price,
+        Currency = dto.Currency,
+        ImageUrl = dto.ImageUrl,
+        Stock = dto.Stock,
+        IsActive = dto.IsActive
+      };
+
       var res = await _supabase
         .From<Product>()
         .Insert(product);
       if (res.Models is null || res.Models.Count == 0)
         return StatusCode(500, "Failed to create product");
+      var createdProduct = res.Models.FirstOrDefault();
+      foreach (var categoryId in dto.CategoryIds)
+      {
+        await _supabase
+          .From<ProductCategory>()
+          .Insert(new ProductCategory
+          {
+            ProductId = createdProduct!.Id,
+            CategoryId = categoryId
+          });
+      }
       return CreatedAtAction(
         nameof(GetProduct), 
         new { id = res.Models.First().Id }, 
