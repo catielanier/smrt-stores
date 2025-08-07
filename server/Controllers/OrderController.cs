@@ -23,10 +23,50 @@ namespace SmrtStores.Controllers
     }
 
     [HttpGet()]
-    public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
+    public async Task<ActionResult<IEnumerable<OrderGetDto>>> GetOrders()
     {
+      var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+
+      if (string.IsNullOrWhiteSpace(token))
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var principal = _tokenService.ValidateToken(token);
+
+      if (principal is null)
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var expClaim = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Exp);
+
+      if (expClaim is null || !long.TryParse(expClaim.Value, out long expUnix))
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var userId = _tokenService.GetUserIdFromToken(token);
+
+      var loggedInUser = await _supabase
+        .From<DBUser>()
+        .Where(u => u.Id == userId)
+        .Get();
+
+      if (loggedInUser.Models is null || loggedInUser.Models.Count == 0)
+        return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      if (loggedInUser.Models.First().Role != Role.Owner)
+        return Unauthorized(new { error = "Not authorized to view user's information." });
       var res = await _supabase.From<Order>().Get();
-      var orders = res.Models;
+      List<OrderGetDto> orders = res.Models
+        .Select(o => new OrderGetDto
+        {
+          OrderNumber = o.OrderNumber,
+          TotalCents = o.TotalCents,
+          Currency = o.Currency,
+          ShippingAddress = o.ShippingAddress,
+          ShippingMethod = o.ShippingMethod,
+          ShippingStatus = o.ShippingStatus,
+          TrackingNumber = o.TrackingNumber,
+          TrackingUrl = o.TrackingUrl,
+          ShippingCost = o.ShippingCost,
+          CreatedAt = o.CreatedAt,
+        }).ToList();
       return Ok(orders);
     }
 
@@ -95,7 +135,7 @@ namespace SmrtStores.Controllers
     }
 
     [HttpGet("by-user/{id}")]
-    public async Task<ActionResult<IEnumerable<Order>>> GetOrdersByUser([FromRoute] Guid id)
+    public async Task<ActionResult<IEnumerable<OrderGetDto>>> GetOrdersByUser([FromRoute] Guid id)
     {
       var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
 
@@ -134,7 +174,21 @@ namespace SmrtStores.Controllers
         .From<Order>()
         .Where(o => o.UserId == id)
         .Get();
-      return Ok(res.Models);
+      List<OrderGetDto> orders = res.Models
+        .Select(o => new OrderGetDto
+        {
+          OrderNumber = o.OrderNumber,
+          TotalCents = o.TotalCents,
+          Currency = o.Currency,
+          ShippingAddress = o.ShippingAddress,
+          ShippingMethod = o.ShippingMethod,
+          ShippingStatus = o.ShippingStatus,
+          TrackingNumber = o.TrackingNumber,
+          TrackingUrl = o.TrackingUrl,
+          ShippingCost = o.ShippingCost,
+          CreatedAt = o.CreatedAt,
+        }).ToList();
+      return Ok(orders);
     }
 
     [HttpGet("by-user/logged-in")]
@@ -162,7 +216,22 @@ namespace SmrtStores.Controllers
         .Where(o => o.UserId == userId)
         .Get();
 
-      return Ok(res.Models);
+      List<OrderGetDto> orders = res.Models
+        .Select(o => new OrderGetDto
+        {
+          OrderNumber = o.OrderNumber,
+          TotalCents = o.TotalCents,
+          Currency = o.Currency,
+          ShippingAddress = o.ShippingAddress,
+          ShippingMethod = o.ShippingMethod,
+          ShippingStatus = o.ShippingStatus,
+          TrackingNumber = o.TrackingNumber,
+          TrackingUrl = o.TrackingUrl,
+          ShippingCost = o.ShippingCost,
+          CreatedAt = o.CreatedAt,
+        }).ToList();
+
+      return Ok(orders);
     }
 
     [HttpPost()]
