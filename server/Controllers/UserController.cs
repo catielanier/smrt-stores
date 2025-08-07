@@ -23,6 +23,8 @@ namespace SmrtStores.Controllers
       _stripeClient = stripeClient;
     }
 
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPost("signup")]
     public async Task<ActionResult<DBUser>> DoSignup(DBUser user)
     {
@@ -46,9 +48,11 @@ namespace SmrtStores.Controllers
       if(res.Models.Count == 0)
         return BadRequest("User creation failed");
 
-      return Ok(res.Models.First());
+      return Ok("Account created");
     }
 
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [HttpPost("login")]
     public async Task<ActionResult<DBUser>> DoLogin(string email, string password)
     {
@@ -68,6 +72,8 @@ namespace SmrtStores.Controllers
       return Ok(new { token, showAdminPanel });
     }
 
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [HttpPost("init")]
     public ActionResult<object> Init()
     {
