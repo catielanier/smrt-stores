@@ -88,7 +88,8 @@ namespace SmrtStores.Controllers
         Currency = dto.Currency,
         ImageUrl = dto.ImageUrl,
         Stock = dto.Stock,
-        IsActive = dto.IsActive
+        IsActive = dto.IsActive,
+        Weight = dto.Weight,
       };
 
       var res = await _supabase
@@ -131,7 +132,8 @@ namespace SmrtStores.Controllers
           Currency = dto.Currency,
           ImageUrl = dto.ImageUrl,
           Stock = dto.Stock,
-          IsActive = dto.IsActive
+          IsActive = dto.IsActive,
+          Weight = dto.Weight,
       };
       var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
 

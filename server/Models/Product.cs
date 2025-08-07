@@ -16,6 +16,10 @@ namespace SmrtStores.Models
     [Column("description")]
     public string Description { get; set; } = string.Empty;
     [Required]
+    [Range(0, int.MaxValue, ErrorMessage = "Weight must be a non-negative value")]
+    [Column("weight")]
+    public int Weight { get; set; }
+    [Required]
     [Range(0, int.MaxValue, ErrorMessage = "Price must be a non-negative value")]
     [Column("price")]
     public int Price { get; set; }
