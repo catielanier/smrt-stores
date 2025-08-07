@@ -120,11 +120,19 @@ namespace SmrtStores.Controllers
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPut("{id}")]
-    public async Task<ActionResult<Product>> UpdateProduct([FromRoute] Guid id, [FromBody] Product product)
+    public async Task<ActionResult<Product>> UpdateProduct([FromRoute] Guid id, [FromBody] ProductCreateDto dto)
     {
-      if (!ModelState.IsValid)
-        return BadRequest(ModelState);
-
+      var product = new Product
+      {
+          Id = id,
+          Name = dto.Name,
+          Description = dto.Description,
+          Price = dto.Price,
+          Currency = dto.Currency,
+          ImageUrl = dto.ImageUrl,
+          Stock = dto.Stock,
+          IsActive = dto.IsActive
+      };
       var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
 
       if (string.IsNullOrWhiteSpace(token))
@@ -162,6 +170,20 @@ namespace SmrtStores.Controllers
         .Update(product);
       if (res.Models is null || res.Models.Count == 0)
         return StatusCode(500, "Failed to update product");
+
+      await _supabase
+        .From<ProductCategory>()
+        .Where(pc => pc.ProductId == id)
+        .Delete();
+
+      foreach (var catId in dto.CategoryIds)
+      {
+        await _supabase.From<ProductCategory>().Insert(new ProductCategory
+          {
+            ProductId = id,
+            CategoryId = catId
+          });
+      }
       return Ok(res.Models.First());
     }
 
