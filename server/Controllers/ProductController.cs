@@ -32,12 +32,12 @@ namespace SmrtStores.Controllers
 
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [HttpGet("{id}")]
-    public async Task<ActionResult<Product>> GetProduct([FromRoute] Guid id)
+    [HttpGet("{slug}")]
+    public async Task<ActionResult<Product>> GetProduct([FromRoute] String slug)
     {
       var res = await _supabase
         .From<Product>()
-        .Where(product => product.Id == id)
+        .Where(product => product.Slug == slug)
         .Get();
       
       if (res.Models is null || res.Models.Count == 0)
@@ -80,6 +80,8 @@ namespace SmrtStores.Controllers
       if (user.Models.First().Role != Role.Owner)
         return Unauthorized(new { error = "No admin access" });
 
+      int productCount = await _supabase.From<Product>().Count(Supabase.Postgrest.Constants.CountType.Exact);
+
       Product product = new Product
       {
         Name = dto.Name,
@@ -90,6 +92,8 @@ namespace SmrtStores.Controllers
         Stock = dto.Stock,
         IsActive = dto.IsActive,
         Weight = dto.Weight,
+        Slug = SlugService.GenerateSlug(dto.Name),
+        ProductNumber = $"ITEM-{productCount + 1:D6}",
       };
 
       var res = await _supabase

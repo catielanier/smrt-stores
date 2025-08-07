@@ -15,6 +15,10 @@ namespace SmrtStores.Models
     [Required]
     [Column("description")]
     public string Description { get; set; } = string.Empty;
+    [Column("slug")]
+    public string Slug { get; set; } = string.Empty;
+    [Column("product_number")]
+    public string ProductNumber { get; set; } = string.Empty;
     [Required]
     [Range(0, int.MaxValue, ErrorMessage = "Weight must be a non-negative value")]
     [Column("weight")]
