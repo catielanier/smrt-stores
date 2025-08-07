@@ -23,11 +23,41 @@ namespace SmrtStores.Controllers
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpGet()]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+    public async Task<ActionResult<IEnumerable<Product>>> GetProducts([FromQuery] string? category)
     {
-      var res = await _supabase.From<Product>().Get();
-      var products = res.Models;
-      return Ok(products);
+      if (string.IsNullOrWhiteSpace(category))
+      {
+        var res = await _supabase.From<Product>().Get();
+        var products = res.Models;        
+        return Ok(products);
+      }
+
+      var catRes = await _supabase
+        .From<Category>()
+        .Where(c => c.Slug == category)
+        .Get();
+
+      if (catRes.Models is null || catRes.Models.Count == 0)
+        return BadRequest("Invalid category");
+
+      Guid categoryId = catRes.Models.First().Id;
+
+      var prdCatRes = await _supabase
+        .From<ProductCategory>()
+        .Where(pc => pc.CategoryId == categoryId)
+        .Get();
+
+      if (prdCatRes.Models is null || prdCatRes.Models.Count == 0)
+        return Ok(new List<Product>());
+
+      var productIds = prdCatRes.Models.Select(pc => pc.ProductId).ToList();
+
+      var filteredProductsRes = await _supabase
+        .From<Product>()
+        .Filter("id", Supabase.Postgrest.Constants.Operator.In, $"({string.Join(",", productIds.Select(id => $"\"{id}\""))})") 
+        .Get();
+
+      return Ok(filteredProductsRes.Models);
     }
 
     [ProducesResponseType(StatusCodes.Status200OK)]
