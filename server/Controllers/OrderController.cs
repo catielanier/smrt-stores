@@ -30,12 +30,12 @@ namespace SmrtStores.Controllers
       return Ok(orders);
     }
 
-    [HttpGet("{id}")]
-    public async Task<ActionResult<Order>> GetOrder([FromRoute] Guid id)
+    [HttpGet("{orderNumber}")]
+    public async Task<ActionResult<Order>> GetOrder([FromRoute] string orderNumber)
     {
       var res = await _supabase
         .From<Order>()
-        .Where(o => o.Id == id)
+        .Where(o => o.OrderNumber == orderNumber)
         .Get();
 
       if (res.Models is null || res.Models.Count == 0)
