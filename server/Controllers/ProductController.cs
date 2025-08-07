@@ -89,7 +89,7 @@ namespace SmrtStores.Controllers
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [HttpGet("{slug}")]
-    public async Task<ActionResult<Product>> GetProduct([FromRoute] String slug)
+    public async Task<ActionResult<ProductGetDto>> GetProduct([FromRoute] String slug)
     {
       var res = await _supabase
         .From<Product>()
@@ -99,7 +99,21 @@ namespace SmrtStores.Controllers
       if (res.Models is null || res.Models.Count == 0)
         return NotFound();
 
-      return Ok(res.Models.First());
+      ProductGetDto product = new ProductGetDto
+      {
+        Name = res.Models.First().Name,
+        Description = res.Models.First().Description,
+        Price = res.Models.First().Price,
+        Currency = res.Models.First().Currency,
+        ImageUrl = res.Models.First().ImageUrl,
+        Slug = res.Models.First().Slug,
+        ProductNumber = res.Models.First().ProductNumber,
+        Stock = res.Models.First().Stock,
+        IsActive = res.Models.First().IsActive,
+        Weight = res.Models.First().Weight,
+      };
+
+      return Ok(product);
     }
 
     [ProducesResponseType(StatusCodes.Status201Created)]
@@ -170,7 +184,7 @@ namespace SmrtStores.Controllers
       }
       return CreatedAtAction(
         nameof(GetProduct), 
-        new { id = res.Models.First().Id }, 
+        new { productNumber = res.Models.First().ProductNumber }, 
         res.Models.First()
       );
     }
