@@ -1,6 +1,7 @@
 using BCrypt.Net;
 using Microsoft.AspNetCore.Mvc;
 using DBUser = SmrtStores.Models.User;
+using LocalTokenService = SmrtStores.Services.TokenService;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Supabase;
@@ -13,10 +14,10 @@ namespace SmrtStores.Controllers
   public class UserController : ControllerBase
   {
     private readonly Client _supabase;
-    private readonly TokenService _tokenService;
+    private readonly LocalTokenService _tokenService;
     private readonly StripeClient _stripeClient;
 
-    public UserController(Client supabase, TokenService tokenService, StripeClient stripeClient)
+    public UserController(Client supabase, LocalTokenService tokenService, StripeClient stripeClient)
     {
       _supabase = supabase;
       _tokenService = tokenService;

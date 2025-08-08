@@ -4,81 +4,84 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using SmrtStores.Models;
 
-public class TokenService
+namespace SmrtStores.Services
 {
-  private readonly string _secretKey;
-  private readonly int _expiryDays;
-
-  public TokenService(IConfiguration configuration)
+  public class TokenService
   {
-    _secretKey = configuration["JWT_SECRET"] ?? throw new Exception("non-existent JWT secret");
-    _expiryDays = int.TryParse(configuration["JWT_EXPIRY"], out int days) ? days : 7;
-  }
-  public string GenerateToken(User user)
-  {
-    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
-    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+    private readonly string _secretKey;
+    private readonly int _expiryDays;
 
-    var claims = new[]
+    public TokenService(IConfiguration configuration)
     {
-      new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-      new Claim(JwtRegisteredClaimNames.Email, user.Email),
-      new Claim("name", user.Name),
-      new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-    };
-
-    var token = new JwtSecurityToken(
-      issuer: "smrtstores",
-      audience: "smrtstores-client",
-      claims: claims,
-      expires: DateTime.UtcNow.AddDays(_expiryDays),
-      signingCredentials: creds
-    );
-
-    return new JwtSecurityTokenHandler().WriteToken(token);
-  }
-  public ClaimsPrincipal? ValidateToken(string token) {
-    var tokenHandler = new JwtSecurityTokenHandler();
-    var key = Encoding.UTF8.GetBytes(_secretKey);
-
-    try
+      _secretKey = configuration["JWT_SECRET"] ?? throw new Exception("non-existent JWT secret");
+      _expiryDays = int.TryParse(configuration["JWT_EXPIRY"], out int days) ? days : 7;
+    }
+    public string GenerateToken(User user)
     {
-      var principal = tokenHandler.ValidateToken(token, new TokenValidationParameters
+      var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
+      var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+      var claims = new[]
       {
-        ValidateIssuer = true,
-        ValidIssuer = "smrtstores",
-        ValidateAudience = true,
-        ValidAudience = "smrtstores-client",
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
-        ClockSkew = TimeSpan.FromMinutes(1)
-      }, out _);
+        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Email, user.Email),
+        new Claim("name", user.Name),
+        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+      };
 
-      return principal;
+      var token = new JwtSecurityToken(
+        issuer: "smrtstores",
+        audience: "smrtstores-client",
+        claims: claims,
+        expires: DateTime.UtcNow.AddDays(_expiryDays),
+        signingCredentials: creds
+      );
+
+      return new JwtSecurityTokenHandler().WriteToken(token);
     }
-    catch
+    public ClaimsPrincipal? ValidateToken(string token) {
+      var tokenHandler = new JwtSecurityTokenHandler();
+      var key = Encoding.UTF8.GetBytes(_secretKey);
+
+      try
+      {
+        var principal = tokenHandler.ValidateToken(token, new TokenValidationParameters
+        {
+          ValidateIssuer = true,
+          ValidIssuer = "smrtstores",
+          ValidateAudience = true,
+          ValidAudience = "smrtstores-client",
+          ValidateLifetime = true,
+          ValidateIssuerSigningKey = true,
+          IssuerSigningKey = new SymmetricSecurityKey(key),
+          ClockSkew = TimeSpan.FromMinutes(1)
+        }, out _);
+
+        return principal;
+      }
+      catch
+      {
+        return null;
+      }
+    }
+
+    public Guid? GetUserIdFromToken(string token)
     {
-      return null;
+        var handler = new JwtSecurityTokenHandler();
+        var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
+
+        if (jwtToken == null)
+            return null;
+
+        var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub);
+
+        if (userIdClaim == null)
+            return null;
+
+        if (Guid.TryParse(userIdClaim.Value, out var userId))
+            return userId;
+
+        return null;
     }
-  }
-
-  public Guid? GetUserIdFromToken(string token)
-  {
-      var handler = new JwtSecurityTokenHandler();
-      var jwtToken = handler.ReadToken(token) as JwtSecurityToken;
-
-      if (jwtToken == null)
-          return null;
-
-      var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub);
-
-      if (userIdClaim == null)
-          return null;
-
-      if (Guid.TryParse(userIdClaim.Value, out var userId))
-          return userId;
-
-      return null;
   }
 }

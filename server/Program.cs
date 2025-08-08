@@ -1,5 +1,7 @@
 using dotenv.net;
+using LocalTokenService = SmrtStores.Services.TokenService;
 using Stripe;
+using SmrtStores.Services;
 
 DotEnv.Load();
 
@@ -21,6 +23,8 @@ await supabase.InitializeAsync();
 
 builder.Services.AddSingleton(supabase);
 builder.Services.AddSingleton(stripeClient);
+builder.Services.AddSingleton<LocalTokenService>();
+builder.Services.AddSingleton<SlugService>();
 
 builder.Services.AddControllers();
 

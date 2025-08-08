@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using SmrtStores.Models;
+using SmrtStores.Services;
 using Supabase;
 
 namespace SmrtStores.Controllers

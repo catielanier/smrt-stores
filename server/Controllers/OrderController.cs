@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using SmrtStores.Models;
 using DBUser = SmrtStores.Models.User;
+using LocalTokenService = SmrtStores.Services.TokenService;
 using Supabase;
 using Stripe;
 using SmrtStores.Dtos;
@@ -13,9 +14,9 @@ namespace SmrtStores.Controllers
   public class OrderController : ControllerBase
   {
     private readonly Client _supabase;
-    private readonly TokenService _tokenService;
+    private readonly LocalTokenService _tokenService;
     private readonly StripeClient _stripeClient;
-    public OrderController(Client supabase, TokenService tokenService, StripeClient stripeClient)
+    public OrderController(Client supabase, LocalTokenService tokenService, StripeClient stripeClient)
     {
       _supabase = supabase;
       _tokenService = tokenService;

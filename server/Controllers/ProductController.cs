@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
 using SmrtStores.Models;
 using DBUser = SmrtStores.Models.User;
+using LocalTokenService = SmrtStores.Services.TokenService;
+using SmrtStores.Services;
 using Supabase;
 using SmrtStores.Dtos;
 
@@ -12,9 +14,10 @@ namespace SmrtStores.Controllers
   public class ProductController : ControllerBase
   {
     private readonly Client _supabase;
-    private readonly TokenService _tokenService;
+    private readonly LocalTokenService _tokenService;
+    private readonly SlugService _slugService;
 
-    public ProductController(Client supabase, TokenService tokenService)
+    public ProductController(Client supabase, LocalTokenService tokenService)
     {
       _supabase = supabase;
       _tokenService = tokenService;
