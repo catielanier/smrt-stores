@@ -15,7 +15,6 @@ namespace SmrtStores.Controllers
   {
     private readonly Client _supabase;
     private readonly LocalTokenService _tokenService;
-    private readonly SlugService _slugService;
 
     public ProductController(Client supabase, LocalTokenService tokenService)
     {
