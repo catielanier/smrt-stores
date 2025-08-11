@@ -1,5 +1,9 @@
 {
-  "name": "client",
+  "name": "smrt-stores",
+  "author": {
+    "name": "Catie Lanier",
+    "email": "catie@smrtesports.com"
+  },
   "private": true,
   "version": "0.0.0",
   "type": "module",
