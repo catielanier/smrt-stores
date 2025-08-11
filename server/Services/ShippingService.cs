@@ -21,7 +21,8 @@ namespace SmrtStores.Services
     private readonly string _fedexClientSecret;
     private readonly string _fedexAccountNumber;
     private readonly string _fedexUri;
-    private readonly string _purolatorApiKey;
+    private readonly string _purolatorClientId;
+    private readonly string _purolatorClientSecret;
     private readonly string _purolatorUri;
     private readonly string _originPostalCode;
 
@@ -37,7 +38,8 @@ namespace SmrtStores.Services
       _fedexClientSecret = configuration["FEDEX_CLIENT_SECRET"] ?? throw new Exception("no fedex client secret");
       _fedexAccountNumber = configuration["FEDEX_ACCOUNT_NUMBER"] ?? throw new Exception("no fedex account number");
       _fedexUri = configuration["FEDEX_URI"] ?? throw new Exception("no fedex uri");
-      _purolatorApiKey = configuration["PUROLATOR_API_KEY"] ?? throw new Exception("no purolator api key");
+      _purolatorClientId = configuration["PUROLATOR_CLIENT_ID"] ?? throw new Exception("no purolator client id");
+      _purolatorClientSecret = configuration["PUROLATOR_CLIENT_SECRET"] ?? throw new Exception("no purolator client secret");
       _purolatorUri = configuration["PUROLATOR_URI"] ?? throw new Exception("no purolator uri");
       _originPostalCode = configuration["ORIGIN_POSTAL_CODE"] ?? throw new Exception("no origin postal code");
     }
@@ -545,9 +547,103 @@ namespace SmrtStores.Services
       return null;
     }
 
-    public async Task<ShippingReturnDto> GeneratePurolatorShippingQuote(ShippingCreateDto shippingQuote)
+    public async Task<List<ShippingReturnDto>> GeneratePurolatorShippingQuote(ShippingCreateDto shippingQuote)
     {
-      
+        // Purolator only handles Canadian domestic here
+        if (!string.Equals(shippingQuote.CountryCode, "CA", StringComparison.OrdinalIgnoreCase))
+            return new List<ShippingReturnDto>();
+
+        // Get OAuth token
+        var token = await GetPurolatorAccessTokenAsync(_purolatorUri, _purolatorClientId, _purolatorClientSecret);
+
+        decimal weightKg = shippingQuote.Weight; // if grams, convert: / 1000m
+        string CleanPostal(string s) => (s ?? "").Replace(" ", "").ToUpperInvariant();
+
+        // Build XML QuickEstimate request
+        // Available services: PurolatorExpress, PurolatorExpress9AM, PurolatorExpress10:30AM, PurolatorExpressEvening, PurolatorGround, PurolatorGround9AM, etc.
+        var ns = XNamespace.Get("http://purolator.com/pws/datatypes/v2");
+        var requestXml = new XDocument(
+            new XElement(ns + "GetQuickEstimateRequest",
+                new XElement(ns + "BillingAccountNumber", ""), // optional if just quoting
+                new XElement(ns + "SenderPostalCode", CleanPostal(_originPostalCode)),
+                new XElement(ns + "ReceiverPostalCode", CleanPostal(shippingQuote.PostalCode)),
+                new XElement(ns + "PackageType", "ExpressBox"), // generic package type
+                new XElement(ns + "TotalWeight",
+                    new XElement(ns + "Value", weightKg.ToString("0.###", CultureInfo.InvariantCulture)),
+                    new XElement(ns + "WeightUnit", "kg")
+                ),
+                new XElement(ns + "ShowAlternativeServicesIndicator", "true")
+            )
+        );
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{_purolatorUri}/EWS/V2/Estimating/EstimatingService.asmx");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
+        req.Content = new StringContent(requestXml.ToString(SaveOptions.DisableFormatting), Encoding.UTF8, "application/xml");
+
+        using var res = await client.SendAsync(req);
+        var xml = await res.Content.ReadAsStringAsync();
+        if (!res.IsSuccessStatusCode)
+            throw new HttpRequestException($"Purolator Estimating error {(int)res.StatusCode}: {xml}");
+
+        var doc = XDocument.Parse(xml);
+        var results = new List<ShippingReturnDto>();
+
+        // Parse each Service in the reply
+        foreach (var svc in doc.Descendants(ns + "Service"))
+        {
+            var code = svc.Element(ns + "ServiceID")?.Value ?? "";
+            var name = svc.Element(ns + "Name")?.Value ?? code;
+            var total = svc.Element(ns + "TotalPrice")?.Value ?? "0";
+            decimal.TryParse(total, NumberStyles.Any, CultureInfo.InvariantCulture, out var price);
+
+            // Transit days
+            int? days = null;
+            var estTransit = svc.Element(ns + "EstimatedTransitDays")?.Value;
+            if (int.TryParse(estTransit, out var d)) days = d;
+
+            results.Add(new ShippingReturnDto
+            {
+                ShippingMethod = ShippingMethod.Purolator,
+                ShippingType = MapPurolatorShippingType(code, name),
+                ShippingCost = (int)Math.Round(price * 100m, MidpointRounding.AwayFromZero),
+                Currency = string.IsNullOrWhiteSpace(shippingQuote.Currency) ? "CAD" : shippingQuote.Currency,
+                ApproxShippingDaysMin = days ?? 0,
+                ApproxShippingDaysMax = days ?? 0
+            });
+        }
+
+        return results.OrderBy(r => r.ShippingCost).ToList();
+    }
+
+    // --- OAuth for Purolator ---
+    private static async Task<string> GetPurolatorAccessTokenAsync(string baseUrl, string clientId, string clientSecret)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/EWS/V1/OAuth/AccessToken");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        req.Content = new FormUrlEncodedContent(new Dictionary<string, string> {
+            { "grant_type", "client_credentials" },
+            { "client_id", clientId },
+            { "client_secret", clientSecret }
+        });
+
+        using var res = await client.SendAsync(req);
+        var body = await res.Content.ReadAsStringAsync();
+        if (!res.IsSuccessStatusCode)
+            throw new HttpRequestException($"Purolator OAuth error {(int)res.StatusCode}: {body}");
+
+        using var doc = JsonDocument.Parse(body);
+        return doc.RootElement.GetProperty("access_token").GetString()
+              ?? throw new Exception("Purolator OAuth: access_token missing");
+    }
+
+    // --- Service code → type mapping ---
+    private static string MapPurolatorShippingType(string code, string name)
+    {
+        var n = (name ?? "").ToLowerInvariant();
+        if (n.Contains("ground")) return "Ground";
+        if (n.Contains("express")) return "Express";
+        return "Unknown";
     }
   }
 }
