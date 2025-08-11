@@ -6,6 +6,7 @@ using LocalTokenService = SmrtStores.Services.TokenService;
 using Supabase;
 using Stripe;
 using SmrtStores.Dtos;
+using SmrtStores.Services;
 
 namespace SmrtStores.Controllers
 {
@@ -16,11 +17,13 @@ namespace SmrtStores.Controllers
     private readonly Client _supabase;
     private readonly LocalTokenService _tokenService;
     private readonly StripeClient _stripeClient;
-    public OrderController(Client supabase, LocalTokenService tokenService, StripeClient stripeClient)
+    private readonly ShippingService _shippingService;
+    public OrderController(Client supabase, LocalTokenService tokenService, StripeClient stripeClient, ShippingService shippingService)
     {
       _supabase = supabase;
       _tokenService = tokenService;
       _stripeClient = stripeClient;
+      _shippingService = shippingService;
     }
 
     [HttpGet()]
@@ -321,6 +324,12 @@ namespace SmrtStores.Controllers
         new { id = createdOrder!.Id }, 
         createdOrder
       );
+    }
+
+    [HttpPost("shipping")]
+    public async Task<ActionResult<List<ShippingReturnDto>>> CreateShippingQuotes([FromBody] ShippingCreateDto shippingQuote)
+    {
+      
     }
   }
 }

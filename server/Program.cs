@@ -25,6 +25,7 @@ builder.Services.AddSingleton(supabase);
 builder.Services.AddSingleton(stripeClient);
 builder.Services.AddSingleton<LocalTokenService>();
 builder.Services.AddSingleton<SlugService>();
+builder.Services.AddSingleton<ShippingService>();
 
 builder.Services.AddControllers();
 
