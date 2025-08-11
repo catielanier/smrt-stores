@@ -331,6 +331,16 @@
   resolved "https://registry.yarnpkg.com/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.46.1.tgz#932d8696dfef673bee1a1e291a5531d25a6903be"
   integrity sha512-7GVB4luhFmGUNXXJhH2jJwZCFB3pIOixv2E3s17GQHBFUOQaISlt7aGcQgqvCaDSxTZJUzlK/QJ1FN8S94MrzQ==
 
+"@stripe/stripe-js@^5.5.0":
+  version "5.10.0"
+  resolved "https://registry.yarnpkg.com/@stripe/stripe-js/-/stripe-js-5.10.0.tgz#4d1fcf8c59530865fcd59ce910798cc9c973a870"
+  integrity sha512-PTigkxMdMUP6B5ISS7jMqJAKhgrhZwjprDqR1eATtFfh0OpKVNp110xiH+goeVdrJ29/4LeZJR4FaHHWstsu0A==
+
+"@stripe/stripe-js@^7.8.0":
+  version "7.8.0"
+  resolved "https://registry.yarnpkg.com/@stripe/stripe-js/-/stripe-js-7.8.0.tgz#01390d31030f04b64a7ff13adcccbafd615c7b77"
+  integrity sha512-DNXRfYUgkZlrniQORbA/wH8CdFRhiBSE0R56gYU0V5vvpJ9WZwvGrz9tBAZmfq2aTgw6SK7mNpmTizGzLWVezw==
+
 "@types/estree@1.0.8":
   version "1.0.8"
   resolved "https://registry.yarnpkg.com/@types/estree/-/estree-1.0.8.tgz#958b91c991b1867ced318bedea0e215ee050726e"
@@ -1403,6 +1413,13 @@ vue-router@4:
   integrity sha512-ogAF3P97NPm8fJsE4by9dwSYtDwXIY1nFY9T6DyQnGHd1E2Da94w9JIolpe42LJGIl0DwOHBi8TcRPlPGwbTtw==
   dependencies:
     "@vue/devtools-api" "^6.6.4"
+
+vue-stripe-js@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/vue-stripe-js/-/vue-stripe-js-2.0.2.tgz#6690d39f3317e249fb9c23035f4155b98c1f3aff"
+  integrity sha512-tYDUw0zzXfo7kTTyTAFYCDZP7BPq1TM5mAgCRcjcLg7IgUiJlSBcnReDoCCZ6RDhSjFC4Yl5hwKO5Zs38fV63A==
+  dependencies:
+    "@stripe/stripe-js" "^5.5.0"
 
 vue-tsc@^2.2.12:
   version "2.2.12"
