@@ -17,7 +17,9 @@ namespace SmrtStores.Services
     private readonly string _upsClientId;
     private readonly string _upsClientSecret;
     private readonly string _upsUri;
-    private readonly string _fedexApiKey;
+    private readonly string _fedexClientId;
+    private readonly string _fedexClientSecret;
+    private readonly string _fedexAccountNumber;
     private readonly string _fedexUri;
     private readonly string _purolatorApiKey;
     private readonly string _purolatorUri;
@@ -31,7 +33,9 @@ namespace SmrtStores.Services
       _upsClientId = configuration["UPS_CLIENT_ID"] ?? throw new Exception("no ups client id");
       _upsClientSecret = configuration["UPS_CLIENT_SECRET"] ?? throw new Exception("no ups client id");
       _upsUri = configuration["UPS_URI"] ?? throw new Exception("no ups uri");
-      _fedexApiKey = configuration["FEDEX_API_KEY"] ?? throw new Exception("no fedex api key");
+      _fedexClientId = configuration["FEDEX_CLIENT_ID"] ?? throw new Exception("no fedex client id");
+      _fedexClientSecret = configuration["FEDEX_CLIENT_SECRET"] ?? throw new Exception("no fedex client secret");
+      _fedexAccountNumber = configuration["FEDEX_ACCOUNT_NUMBER"] ?? throw new Exception("no fedex account number");
       _fedexUri = configuration["FEDEX_URI"] ?? throw new Exception("no fedex uri");
       _purolatorApiKey = configuration["PUROLATOR_API_KEY"] ?? throw new Exception("no purolator api key");
       _purolatorUri = configuration["PUROLATOR_URI"] ?? throw new Exception("no purolator uri");
@@ -352,9 +356,193 @@ namespace SmrtStores.Services
       };
     }
 
-    public async Task<ShippingReturnDto> GenerateFedexShippingQuote(ShippingCreateDto shippingQuote)
+    public async Task<List<ShippingReturnDto>> GenerateFedexShippingQuote(ShippingCreateDto shippingQuote)
     {
-      
+      // 1) OAuth token
+      var token = await GetFedexAccessTokenAsync(_fedexUri, _fedexClientId, _fedexClientSecret);
+
+      // 2) Build request body
+      // If Weight is grams in your system, change to: decimal weightKg = shippingQuote.Weight / 1000m;
+      decimal weightKg = shippingQuote.Weight;
+      string Clean(string s) => (s ?? "").Replace(" ", "").ToUpperInvariant();
+
+      var body = new
+      {
+        accountNumber = new { value = _fedexAccountNumber },
+        rateRequestControlParameters = new {
+          returnTransitTimes = true,
+          rateSortOrder = "LOWEST_TO_HIGHEST"
+        },
+        requestedShipment = new
+        {
+          shipper = new {
+            address = new {
+              postalCode = Clean(_originPostalCode),
+              countryCode = "CA"
+            }
+          },
+          recipient = new {
+            address = new {
+              postalCode = Clean(shippingQuote.PostalCode),
+              countryCode = (shippingQuote.CountryCode ?? "").ToUpperInvariant(),
+              residential = false
+            }
+          },
+          // “DROPOFF_AT_FEDEX_LOCATION” or “REGULAR_PICKUP” etc.
+          pickupType = "DROPOFF_AT_FEDEX_LOCATION",
+          // Ask for both ACCOUNT and LIST rates; you can switch to just ACCOUNT
+          rateRequestType = new[] { "ACCOUNT", "LIST" },
+          requestedPackageLineItems = new[] {
+            new {
+              weight = new {
+                units = "KG",
+                value = weightKg.ToString("0.###", CultureInfo.InvariantCulture)
+              }
+              // dimensions = new { length="10", width="10", height="10", units="CM" } // optional, improves accuracy
+            }
+          },
+          // optional carrier filter: FDXE (Express), FDXG (Ground)
+          // carrierCodes = new[] { "FDXE", "FDXG" }
+        }
+      };
+
+      var json = JsonSerializer.Serialize(body, new JsonSerializerOptions {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+      });
+
+      // 3) Call Rates API
+      using var req = new HttpRequestMessage(HttpMethod.Post, $"{_fedexUri}/rate/v1/rates/quotes");
+      req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+      req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+      req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+      using var res = await client.SendAsync(req);
+      var resBody = await res.Content.ReadAsStringAsync();
+      if (!res.IsSuccessStatusCode)
+        throw new HttpRequestException($"FedEx Rating error {(int)res.StatusCode}: {resBody}");
+
+      // 4) Parse response → list
+      using var doc = JsonDocument.Parse(resBody);
+      var results = new List<ShippingReturnDto>();
+
+      // Shape per docs: output -> rateReplyDetails[]; each has serviceType, carrierCode, ratedShipmentDetails[]
+      if (doc.RootElement.TryGetProperty("output", out var output) &&
+          output.TryGetProperty("rateReplyDetails", out var details) &&
+          details.ValueKind == JsonValueKind.Array)
+      {
+        foreach (var d in details.EnumerateArray())
+        {
+          string serviceType = d.GetProperty("serviceType").GetString() ?? "";
+          string carrierCode = d.GetProperty("carrierCode").GetString() ?? ""; // FDXE / FDXG
+
+          // Choose the lowest total charge from ratedShipmentDetails (use ACCOUNT if present, else LIST)
+          decimal best = decimal.MaxValue;
+          string currency = shippingQuote.Currency ?? "CAD";
+          int? days = null;
+
+          if (d.TryGetProperty("ratedShipmentDetails", out var rsd) && rsd.ValueKind == JsonValueKind.Array)
+          {
+            foreach (var sd in rsd.EnumerateArray())
+            {
+              // totalNetCharge or shipmentRateDetails -> totalNetCharge
+              if (sd.TryGetProperty("totalNetCharge", out var tnc))
+              {
+                currency = tnc.GetProperty("currency").GetString() ?? currency;
+                if (decimal.TryParse(tnc.GetProperty("amount").GetString() ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture, out var amt))
+                  best = Math.Min(best, amt);
+              }
+              else if (sd.TryGetProperty("shipmentRateDetails", out var srd) &&
+                      srd.TryGetProperty("totalNetCharge", out var tnc2))
+              {
+                currency = tnc2.GetProperty("currency").GetString() ?? currency;
+                if (decimal.TryParse(tnc2.GetProperty("amount").GetString() ?? "0", NumberStyles.Any, CultureInfo.InvariantCulture, out var amt2))
+                  best = Math.Min(best, amt2);
+              }
+            }
+          }
+
+          // Transit time (commitment / transitTime)
+          if (d.TryGetProperty("commitment", out var comm))
+          {
+            if (comm.TryGetProperty("transitTime", out var ttElem))
+            {
+              // often like "TWO_DAYS" / "THREE_DAYS"
+              var tt = ttElem.GetString();
+              days = ParseFedexTransitDays(tt);
+            }
+            else if (comm.TryGetProperty("minTransitTime", out var minTT) &&
+                    comm.TryGetProperty("maxTransitTime", out var maxTT))
+            {
+              var min = ParseFedexTransitDays(minTT.GetString());
+              var max = ParseFedexTransitDays(maxTT.GetString());
+              days = max ?? min;
+            }
+          }
+
+          if (best != decimal.MaxValue)
+          {
+            results.Add(new ShippingReturnDto
+            {
+              ShippingMethod = ShippingMethod.FedEx,
+              ShippingType = MapFedexShippingType(carrierCode, serviceType),
+              ShippingCost = (int)Math.Round(best * 100m, MidpointRounding.AwayFromZero),
+              Currency = string.IsNullOrWhiteSpace(shippingQuote.Currency) ? currency : shippingQuote.Currency,
+              ApproxShippingDaysMin = days ?? 0,
+              ApproxShippingDaysMax = days ?? 0
+            });
+          }
+        }
+      }
+
+      return results.OrderBy(r => r.ShippingCost).ToList();
+    }
+
+    // --- OAuth (client_credentials) ---
+    private static async Task<string> GetFedexAccessTokenAsync(string baseUrl, string clientId, string clientSecret)
+    {
+      using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/oauth/token");
+      req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+      req.Content = new FormUrlEncodedContent(new Dictionary<string, string> {
+        { "grant_type", "client_credentials" },
+        { "client_id", clientId },
+        { "client_secret", clientSecret }
+      });
+
+      using var res = await client.SendAsync(req);
+      var body = await res.Content.ReadAsStringAsync();
+      if (!res.IsSuccessStatusCode)
+        throw new HttpRequestException($"FedEx OAuth error {(int)res.StatusCode}: {body}");
+
+      using var doc = JsonDocument.Parse(body);
+      return doc.RootElement.GetProperty("access_token").GetString()
+            ?? throw new Exception("FedEx OAuth: access_token missing");
+    }
+
+    // --- Helpers ---
+    private static string MapFedexShippingType(string carrierCode, string serviceType)
+    {
+      // Carrier: FDXG=Ground (incl. Home Delivery/International Ground), FDXE=Express (air)
+      if (string.Equals(carrierCode, "FDXG", StringComparison.OrdinalIgnoreCase)) return "Ground";
+      if (string.Equals(carrierCode, "FDXE", StringComparison.OrdinalIgnoreCase)) return "Air";
+
+      var s = (serviceType ?? "").ToUpperInvariant();
+      if (s.Contains("GROUND") || s.Contains("HOME_DELIVERY")) return "Ground";
+      return "Air"; // everything else (PRIORITY_OVERNIGHT, 2_DAY, INTL_PRIORITY, etc.)
+    }
+
+    private static int? ParseFedexTransitDays(string? transit)
+    {
+      if (string.IsNullOrWhiteSpace(transit)) return null;
+      // e.g., "TWO_DAYS", "THREE_DAYS", "ONE_DAY"
+      var t = transit.ToUpperInvariant();
+      if (t.Contains("ONE")) return 1;
+      if (t.Contains("TWO")) return 2;
+      if (t.Contains("THREE")) return 3;
+      if (t.Contains("FOUR")) return 4;
+      if (t.Contains("FIVE")) return 5;
+      if (t.Contains("SIX")) return 6;
+      if (t.Contains("SEVEN")) return 7;
+      return null;
     }
 
     public async Task<ShippingReturnDto> GeneratePurolatorShippingQuote(ShippingCreateDto shippingQuote)
