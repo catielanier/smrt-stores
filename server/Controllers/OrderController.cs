@@ -329,7 +329,39 @@ namespace SmrtStores.Controllers
     [HttpPost("shipping")]
     public async Task<ActionResult<List<ShippingReturnDto>>> CreateShippingQuotes([FromBody] ShippingCreateDto shippingQuote)
     {
-      
+      if (shippingQuote == null)
+        return BadRequest("Missing shipping request.");
+      if (string.IsNullOrWhiteSpace(shippingQuote.PostalCode) || string.IsNullOrWhiteSpace(shippingQuote.CountryCode))
+        return BadRequest("Postal code and country are required.");
+
+      // helper: try a provider, return empty list on failure
+      static async Task<List<ShippingReturnDto>> TryGet(Func<Task<List<ShippingReturnDto>>> fn)
+      {
+        try { return await fn(); } catch { return new List<ShippingReturnDto>(); }
+      }
+
+      // fire everything in parallel
+      var canadaPostTask = TryGet(() => _shippingService.GenerateCanadaPostShippingQuote(shippingQuote));
+      var upsTask        = TryGet(() => _shippingService.GenerateUpsShippingQuote(shippingQuote));
+      var fedexTask      = TryGet(() => _shippingService.GenerateFedexShippingQuote(shippingQuote));
+      var purolatorTask  = TryGet(() => _shippingService.GeneratePurolatorShippingQuote(shippingQuote)); // returns [] if non-CA
+
+      await Task.WhenAll(canadaPostTask, upsTask, fedexTask, purolatorTask);
+
+      var all = new List<ShippingReturnDto>();
+      all.AddRange(canadaPostTask.Result);
+      all.AddRange(upsTask.Result);
+      all.AddRange(fedexTask.Result);
+      all.AddRange(purolatorTask.Result);
+
+      // optional: de-dupe within same carrier+type+cost (some carriers return duplicate rate lines)
+      var deduped = all
+        .GroupBy(x => new { x.ShippingMethod, x.ShippingType, x.ShippingCost, x.Currency, x.ApproxShippingDaysMin, x.ApproxShippingDaysMax })
+        .Select(g => g.First())
+        .OrderBy(r => r.ShippingCost)
+        .ToList();
+
+      return Ok(deduped);
     }
   }
 }
