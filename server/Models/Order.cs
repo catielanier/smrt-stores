@@ -85,6 +85,7 @@ namespace SmrtStores.Models
     public ShippingMethod ShippingMethod { get; set; }
     [Column("shipping_cost")]
     public int ShippingCost { get; set; }
+    public string ShippingType { get; set; } = string.Empty;
     [Column("shipping_status")]
     public string ShippingStatusString
     {
