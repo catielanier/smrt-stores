@@ -363,5 +363,55 @@ namespace SmrtStores.Controllers
 
       return Ok(deduped);
     }
+
+    [HttpPut("{orderNumber}")]
+    public async Task<ActionResult<OrderCreateDto>> UpdateOrder([FromRoute] string orderNumber, [FromBody] OrderUpdateDto dto)
+    {
+      var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+
+      if (string.IsNullOrWhiteSpace(token))
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var principal = _tokenService.ValidateToken(token);
+
+      if (principal is null)
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var expClaim = principal.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Exp);
+
+      if (expClaim is null || !long.TryParse(expClaim.Value, out long expUnix))
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      var userId = _tokenService.GetUserIdFromToken(token);
+
+      var loggedInUser = await _supabase
+        .From<DBUser>()
+        .Where(u => u.Id == userId)
+        .Get();
+
+      if (loggedInUser.Models is null || loggedInUser.Models.Count == 0)
+        return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+      if (loggedInUser.Models.First().Role != Role.Owner)
+        return Unauthorized(new { error = "Not authorized to view user's information." });
+
+      var res = await _supabase.From<Order>().Where(o => o.OrderNumber == orderNumber).Get();
+
+      if (res.Models is null || res.Models.Count == 0)
+        return NotFound("No order found by order number");
+
+      var order = res.Models.First();
+
+      order.Status = dto.Status;
+      order.TrackingNumber = dto.TrackingNumber;
+      order.TrackingUrl = dto.TrackingUrl;
+
+      var updatedOrder = await _supabase.From<Order>().Where(o => o.Id == order.Id).Update(order);
+
+      if (updatedOrder.Models is null || updatedOrder.Models.Count == 0)
+        return BadRequest("ORDER_UPDATE_ERROR");
+
+      return Ok(updatedOrder.Models.First());
+    }
   }
 }
