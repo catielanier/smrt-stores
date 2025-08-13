@@ -6,6 +6,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Supabase;
 using Stripe;
+using SmrtStores.Models;
 
 namespace SmrtStores.Controllers
 {
@@ -48,6 +49,15 @@ namespace SmrtStores.Controllers
       var res = await _supabase.From<DBUser>().Insert(user);
       if(res.Models.Count == 0)
         return BadRequest("User creation failed");
+
+      Guid userId = res.Models.First().Id;
+
+      Cart cart = new Cart
+      {
+        UserId = userId
+      };
+
+      await _supabase.From<Cart>().Insert(cart);
 
       return Ok("Account created");
     }
