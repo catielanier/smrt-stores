@@ -100,5 +100,59 @@ namespace SmrtStores.Controllers
 
       return Ok(dto);
     }
+
+    [HttpPost("{id}")]
+    public async Task<ActionResult<CartLineItemDto>> UpdateCart([FromRoute] Guid id, [FromBody] string productNumber, [FromBody] int quantity)
+    {
+      var cart = await _supabase.From<Cart>().Where(c => c.Id == id).Get();
+      if (cart.Models is null || cart.Models.Count == 0)
+        return BadRequest("No cart found");
+      if (cart.Models.First().UserId != null) // nullable Guid? → only enforce auth for user carts
+      {
+        var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "");
+        if (string.IsNullOrWhiteSpace(token))
+          return Unauthorized(new { error = "JWT_REQUIRED" });
+
+        var principal = _tokenService.ValidateToken(token);
+        if (principal is null)
+          return Unauthorized(new { error = "JWT_SIGNING_ERROR" });
+
+        var userId = _tokenService.GetUserIdFromToken(token);
+
+        var userRes = await _supabase
+          .From<DBUser>()
+          .Where(o => o.Id == userId)
+          .Get();
+
+        if (userRes.Models is null || userRes.Models.Count == 0)
+          return Unauthorized(new { error = "USER_LOOKUP_ERROR" });
+
+        // enforce ownership: if cart has a user, it must match the current user
+        if (userRes.Models.First().Id != cart.Models.First().UserId)
+          return Unauthorized(new { error = "No access to cart" });
+      }
+      var res = await _supabase.From<CartLine>().Where(cl => cl.CartId == id && cl.ProductNumber == productNumber).Get();
+      if (res.Models is null)
+        return BadRequest("Unknown supabase error");
+      var cartItem = res.Models.First();
+      if (quantity <= 0)
+      {
+        await _supabase.From<CartLine>().Where(cl => cl.Id == cartItem.Id).Delete();
+        return Ok("Item deleted");
+      }
+      await _supabase.From<CartLine>().Where(cl => cl.Id == cartItem.Id).Set(cl => cl.Qty, quantity).Update();
+      var product = await _supabase.From<Product>().Where(p => p.ProductNumber == productNumber).Single();
+      CartLineItemDto dto = new CartLineItemDto
+      {
+        ProductNumber = productNumber,
+        Name = product!.Name,
+        ImageUrl = product!.ImageUrl ?? "",
+        Slug = product!.Slug,
+        Price = product!.Price,
+        Qty = quantity
+      };
+
+      return Ok(dto);
+    }
   }
 }
