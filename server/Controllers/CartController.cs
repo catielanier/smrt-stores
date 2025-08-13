@@ -102,7 +102,7 @@ namespace SmrtStores.Controllers
     }
 
     [HttpPost("{id}")]
-    public async Task<ActionResult<CartLineItemDto>> UpdateCart([FromRoute] Guid id, [FromBody] string productNumber, [FromBody] int quantity)
+    public async Task<ActionResult<CartLineItemDto>> UpdateCart([FromRoute] Guid id, [FromBody] UpdateCartDto updateCartDto)
     {
       var cart = await _supabase.From<Cart>().Where(c => c.Id == id).Get();
       if (cart.Models is null || cart.Models.Count == 0)
@@ -131,25 +131,25 @@ namespace SmrtStores.Controllers
         if (userRes.Models.First().Id != cart.Models.First().UserId)
           return Unauthorized(new { error = "No access to cart" });
       }
-      var res = await _supabase.From<CartLine>().Where(cl => cl.CartId == id && cl.ProductNumber == productNumber).Get();
+      var res = await _supabase.From<CartLine>().Where(cl => cl.CartId == id && cl.ProductNumber == updateCartDto.ProductNumber).Get();
       if (res.Models is null)
         return BadRequest("Unknown supabase error");
       var cartItem = res.Models.First();
-      if (quantity <= 0)
+      if (updateCartDto.Quantity <= 0)
       {
         await _supabase.From<CartLine>().Where(cl => cl.Id == cartItem.Id).Delete();
         return Ok("Item deleted");
       }
-      await _supabase.From<CartLine>().Where(cl => cl.Id == cartItem.Id).Set(cl => cl.Qty, quantity).Update();
-      var product = await _supabase.From<Product>().Where(p => p.ProductNumber == productNumber).Single();
+      await _supabase.From<CartLine>().Where(cl => cl.Id == cartItem.Id).Set(cl => cl.Qty, updateCartDto.Quantity).Update();
+      var product = await _supabase.From<Product>().Where(p => p.ProductNumber == updateCartDto.ProductNumber).Single();
       CartLineItemDto dto = new CartLineItemDto
       {
-        ProductNumber = productNumber,
+        ProductNumber = updateCartDto.ProductNumber,
         Name = product!.Name,
         ImageUrl = product!.ImageUrl ?? "",
         Slug = product!.Slug,
         Price = product!.Price,
-        Qty = quantity
+        Qty = updateCartDto.Quantity
       };
 
       return Ok(dto);
