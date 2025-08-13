@@ -319,6 +319,10 @@ namespace SmrtStores.Controllers
         await _supabase.From<OrderItem>().Insert(orderItem);
       }
 
+      var cart = await _supabase.From<Cart>().Where(c => c.UserId == userId).Single();
+
+      await _supabase.From<CartLine>().Where(cl => cl.CartId == cart!.Id).Delete();
+
       return CreatedAtAction(
         nameof(GetOrder), 
         new { id = createdOrder!.Id }, 
