@@ -7,6 +7,7 @@ using System.Security.Claims;
 using Supabase;
 using Stripe;
 using SmrtStores.Models;
+using SmrtStores.Dtos;
 
 namespace SmrtStores.Controllers
 {
@@ -28,10 +29,16 @@ namespace SmrtStores.Controllers
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     [HttpPost("signup")]
-    public async Task<ActionResult<DBUser>> DoSignup(DBUser user)
+    public async Task<ActionResult<DBUser>> DoSignup(UserCreateDto dto)
     {
-      var hashed = BCrypt.Net.BCrypt.HashPassword(user.PasswordHash);
-      user.PasswordHash = hashed;
+      var hashed = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+      DBUser user = new DBUser
+      {
+        Email = dto.Email,
+        PasswordHash = hashed,
+        Phone = dto.Phone,
+        Name = dto.Name,
+      };
       var customerService = new CustomerService(_stripeClient);
       var stripeCustomerOptions = new CustomerCreateOptions
       {
