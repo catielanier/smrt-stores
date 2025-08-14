@@ -4,6 +4,9 @@ import { defineStore } from 'pinia'
 /** ===== Types from your backend (simple cart) ===== */
 export type CartLine = {
   productNumber: string
+  name: string
+  slug: string
+  imageUrl?: string
   qty: number               // >= 1
   price: number             // unit price (minor units, e.g., cents)
 }
@@ -97,15 +100,29 @@ export const useCartStore = defineStore('cart', {
       localStorage.setItem(LS_KEY, JSON.stringify(snap))
     },
 
-    /** Add or bump a line locally */
-    add(productNumber: string, qty: number, unitPrice: number) {
+    add(
+      line: { productNumber: string; name: string; slug: string; imageUrl?: string; price: number },
+      qty = 1,
+      opts: { updatePrice?: boolean } = {}
+    ) {
       if (qty <= 0) return
-      const idx = this.items.findIndex(i => i.productNumber === productNumber)
+
+      const idx = this.items.findIndex(i => i.productNumber === line.productNumber)
+
       if (idx >= 0) {
-        this.items[idx].qty += qty
+        const existing = this.items[idx]
+        existing.qty += qty
+        // refresh product metadata in case it changed
+        existing.name = line.name
+        existing.slug = line.slug
+        existing.imageUrl = line.imageUrl
+        // keep original captured price unless you explicitly want to update it
+        if (opts.updatePrice) existing.price = line.price
       } else {
-        this.items.push({ productNumber, qty, price: unitPrice })
+        // create new line with required fields
+        this.items.push({ ...line, qty })
       }
+
       this.persistLocal()
     },
 
