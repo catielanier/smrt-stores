@@ -157,5 +157,32 @@ export const useCartStore = defineStore('cart', {
         items: this.items.map(i => ({ productNumber: i.productNumber, qty: i.qty, price: i.price })),
       }
     },
+
+    async init() {
+      this.initializing = true
+
+      // 1) Restore guest snapshot first (so UI has something while fetching)
+      this.restoreLocal()
+
+      try {
+        // 2) Fetch authoritative cart from backend
+        const res = await fetch('/api/cart/init', {
+          credentials: 'include', // keep cookies if needed
+          headers: { 'Content-Type': 'application/json' },
+        })
+
+        if (!res.ok) throw new Error(`Cart init failed: ${res.status}`)
+
+        const data = (await res.json()) as CartDto
+
+        // 3) Replace local state with server state
+        this.setFromServer(data)
+      } catch (err) {
+        console.error('Error initializing cart:', err)
+        // fall back to whatever we had in localStorage
+      } finally {
+        this.initializing = false
+      }
+    },
   },
 })
