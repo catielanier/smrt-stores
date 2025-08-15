@@ -5,11 +5,17 @@ import App from "./App.vue";
 import { useAuthStore } from "./stores/user";
 import { useCartStore } from "./stores/cart";
 import { useCategoryStore } from "./stores/category";
+import router from "./services/router";
 
-const app = createApp(App).use(createPinia());
+const app = createApp(App)
+  .use(createPinia())
+  .use(router)
 
-useAuthStore().init().finally(async () => {
-  await useCartStore().init();
-  await useCategoryStore().fetchCategories();
-  app.mount("#app")
-})
+await Promise.all([
+  useAuthStore().init(),
+  useCartStore().init(),
+  useCategoryStore().fetchCategories()
+])
+
+
+app.mount("#app")
